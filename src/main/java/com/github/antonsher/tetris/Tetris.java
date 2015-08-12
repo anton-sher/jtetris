@@ -45,6 +45,8 @@ public class Tetris {
 	};
 
 	public static final Color[] COLORS = {Color.BLACK, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.YELLOW, Color.RED, Color.CYAN, Color.ORANGE};
+	private static final int[] SCORES = {40, 100, 300, 1200};
+	private static final int LINES_PER_LEVEL = 20;
 
 	enum State {
 		PLACE_NEXT,
@@ -108,6 +110,16 @@ public class Tetris {
 		final JTextField scoreField = new JTextField("0");
 		scoreField.setEditable(false);
 		statsPanel.add(scoreField);
+		final JLabel linesLabel = new JLabel("Lines");
+		statsPanel.add(linesLabel);
+		final JTextField linesField = new JTextField("0");
+		linesField.setEditable(false);
+		statsPanel.add(linesField);
+		final JLabel levelLabel = new JLabel("Level");
+		statsPanel.add(levelLabel);
+		final JTextField levelField = new JTextField("0");
+		levelField.setEditable(false);
+		statsPanel.add(levelField);
 		final JLabel gameOverLabel = new JLabel("");
 		gameOverLabel.setText("Game over");
 		final JButton newGameButton = new JButton("New game");
@@ -125,10 +137,23 @@ public class Tetris {
 		final Runnable boundsUpdater = () -> {
 			boardPanel.setBounds(0, 0, boardWidth, height);
 			statsPanel.setBounds(boardWidth, 0, statsWidth, height);
-			scoreLabel.setBounds(10, 10, 80, 24);
-			scoreField.setBounds(10, 40, 80, 24);
-			gameOverLabel.setBounds(10, 70, 80, 24);
-			newGameButton.setBounds(10, 100, 100, 24);
+			int y = 10;
+			scoreLabel.setBounds(10, y, 80, 24);
+			y += 30;
+			scoreField.setBounds(10, y, 80, 24);
+			y += 30;
+			linesLabel.setBounds(10, y, 80, 24);
+			y += 30;
+			linesField.setBounds(10, y, 80, 24);
+			y += 30;
+			levelLabel.setBounds(10, y, 80, 24);
+			y += 30;
+			levelField.setBounds(10, y, 80, 24);
+			y += 30;
+			gameOverLabel.setBounds(10, y, 80, 24);
+			y += 30;
+			newGameButton.setBounds(10, y, 100, 24);
+			y += 30;
 			tetris.setSize(new Dimension(width, height + 20));
 		};
 
@@ -221,6 +246,9 @@ public class Tetris {
 		gen(random, next);
 		State state = State.PLACE_NEXT;
 		int score = 0;
+		int lines = 0;
+		int level = 0;
+		int tillNext = LINES_PER_LEVEL;
 		while (true) {
 			switch (state) {
 				case PLACE_NEXT:
@@ -246,7 +274,7 @@ public class Tetris {
 				case LET_USER_MOVE:
 					lock.lock();
 					try {
-						condition.await(500, TimeUnit.MILLISECONDS);
+						condition.await(1000 / (level + 1), TimeUnit.MILLISECONDS);
 					}
 					finally {
 						lock.unlock();
@@ -271,14 +299,9 @@ public class Tetris {
 									break;
 								}
 							}
+							int atOnce = 0;
 							if (full) {
-								score++;
-								final int finalScore = score;
-								SwingUtilities.invokeLater(() -> {
-									scoreField.setText("" + finalScore);
-									boundsUpdater.run();
-									scoreField.repaint();
-								});
+								atOnce++;
 								for (int x = 0; x < 10; x++) {
 									board[x][y] = 0;
 									System.arraycopy(board[x], y + 1, board[x], y, 19 - y);
@@ -286,6 +309,29 @@ public class Tetris {
 								}
 							} else {
 								y++;
+							}
+							if (atOnce > 0) {
+								lines += atOnce;
+								tillNext -= atOnce;
+								score += SCORES[atOnce - 1] * (level + 1);
+								final int finalScore = score;
+								final int finalLines = lines;
+								SwingUtilities.invokeLater(() -> {
+									scoreField.setText("" + finalScore);
+									linesField.setText("" + finalLines);
+									boundsUpdater.run();
+									tetris.repaint();
+								});
+							}
+							if (tillNext <= 0) {
+								tillNext += LINES_PER_LEVEL;
+								level++;
+								final int finalLevel = level;
+								SwingUtilities.invokeLater(() -> {
+									levelField.setText("" + finalLevel);
+									boundsUpdater.run();
+									tetris.repaint();
+								});
 							}
 						}
 						state = State.PLACE_NEXT;
@@ -308,9 +354,13 @@ public class Tetris {
 						gen(random, next);
 						state = State.PLACE_NEXT;
 						score = 0;
-						final int finalScore1 = score;
+						lines = 0;
+						level = 0;
+						tillNext = LINES_PER_LEVEL;
 						SwingUtilities.invokeLater(() -> {
-							scoreField.setText("" + finalScore1);
+							scoreField.setText("0");
+							linesField.setText("0");
+							levelField.setText("0");
 							statsPanel.remove(gameOverLabel);
 							statsPanel.remove(newGameButton);
 							boundsUpdater.run();
