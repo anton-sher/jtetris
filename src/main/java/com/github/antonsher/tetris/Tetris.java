@@ -21,6 +21,13 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+/**
+ * TODOs:
+ * - next fig
+ * - pause
+ * - high scores
+ * - refactor
+ */
 public class Tetris {
 	public static final int[][][] TETRAS = new int[][][] {
 																												{ {3, 19}, {4, 19}, {5, 19}, {6, 19}, {1, 0}}, // hor. stick
