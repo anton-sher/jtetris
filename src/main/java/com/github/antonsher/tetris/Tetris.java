@@ -12,6 +12,7 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -22,8 +23,8 @@ import javax.swing.WindowConstants;
 public class Tetris {
 
 	public static final int[][][] SHAPES = new int[][][] {
-			{ {3, 19}, {4, 19}, {5, 19}, {6, 19}}, // hor. stick
-			{ {4, 19}, {5, 19}, {4, 18}, {5, 18}}, // square
+																												{ {3, 19}, {4, 19}, {5, 19}, {6, 19}}, // hor. stick
+																												{ {4, 19}, {5, 19}, {4, 18}, {5, 18}}, // square
 	};
 
 	enum State {
@@ -135,6 +136,12 @@ public class Tetris {
 								tile[0]++;
 							}
 							tetris.repaint();
+						}
+						break;
+					case KeyEvent.VK_UP:
+						int[][] rotated = rotate(tetra);
+						if (canPlace(board, rotated)) {
+							System.arraycopy(rotated, 0, tetra, 0, 4);
 						}
 						break;
 					case KeyEvent.VK_DOWN:
@@ -258,6 +265,26 @@ public class Tetris {
 			}
 			SwingUtilities.invokeLater(boardPanel::repaint);
 		}
+	}
+
+	private static int[][] rotate(final int[][] tetra) {
+		int xCenter = 0;
+		int yCenter = 0;
+		for (int[] tile : tetra) {
+			xCenter += tile[0];
+			yCenter += tile[1];
+		}
+		xCenter /= 4;
+		yCenter /= 4;
+
+		final int[][] rotated = new int[4][2];
+		for (int i = 0; i < tetra.length; i++) {
+			final int[] tile = tetra[i];
+			rotated[i][0] = xCenter + yCenter - tile[1];
+			rotated[i][1] = yCenter + tile[0] - xCenter;
+		}
+
+		return rotated;
 	}
 
 	private static void set(final int[][] board,
