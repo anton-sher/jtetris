@@ -293,15 +293,19 @@ public class Tetris {
 	}
 
 	private static int[][] rotate(final int[][] tetra) {
-		int xCenter = 0;
-		int yCenter = 0;
+		int xMin = Integer.MAX_VALUE;
+		int xMax = Integer.MIN_VALUE;
+		int yMin = Integer.MAX_VALUE;
+		int yMax = Integer.MIN_VALUE;
 		for (int i = 0; i < 4; i++) {
 			final int[] tile = tetra[i];
-			xCenter += tile[0];
-			yCenter += tile[1];
+			xMin = Math.min(xMin, tile[0]);
+			xMax = Math.max(xMax, tile[0]);
+			yMin = Math.min(yMin, tile[1]);
+			yMax = Math.max(yMax, tile[1]);
 		}
-		xCenter /= 4;
-		yCenter /= 4;
+		final int xCenter = (xMin + xMax + 1) / 2;
+		final int yCenter = (yMin + yMax) / 2;
 
 		final int[][] rotated = new int[5][2];
 		for (int i = 0; i < 4; i++) {
