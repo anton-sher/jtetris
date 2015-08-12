@@ -12,7 +12,6 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -22,7 +21,10 @@ import javax.swing.WindowConstants;
 
 public class Tetris {
 
-	public static final int[][][] SHAPES = new int[][][] {{ {3, 19}, {4, 19}, {5, 19}, {6, 19}},};
+	public static final int[][][] SHAPES = new int[][][] {
+			{ {3, 19}, {4, 19}, {5, 19}, {6, 19}}, // hor. stick
+			{ {4, 19}, {5, 19}, {4, 18}, {5, 18}}, // square
+	};
 
 	enum State {
 		PLACE_NEXT,
@@ -86,7 +88,16 @@ public class Tetris {
 		scoreField.setEditable(false);
 		statsPanel.add(scoreField);
 		final JLabel gameOverLabel = new JLabel("");
-		statsPanel.add(gameOverLabel);
+		gameOverLabel.setText("Game over");
+
+		final Runnable boundsUpdater = () -> {
+			boardPanel.setBounds(0, 0, boardWidth, height);
+			statsPanel.setBounds(boardWidth, 0, statsWidth, height);
+			scoreLabel.setBounds(10, 10, 80, 24);
+			scoreField.setBounds(10, 40, 80, 24);
+			gameOverLabel.setBounds(10, 70, 80, 24);
+			tetris.setSize(new Dimension(width, height + 20));
+		};
 
 		tetris.addComponentListener(new ComponentAdapter() {
 			@Override
@@ -102,12 +113,7 @@ public class Tetris {
 			}
 
 			private void updateBounds() {
-				boardPanel.setBounds(0, 0, boardWidth, height);
-				statsPanel.setBounds(boardWidth, 0, statsWidth, height);
-				scoreLabel.setBounds(10, 10, 80, 24);
-				scoreField.setBounds(10, 40, 80, 24);
-				gameOverLabel.setBounds(10, 70, 80, 24);
-				tetris.setSize(new Dimension(width, height + 20));
+				boundsUpdater.run();
 			}
 		});
 
@@ -171,6 +177,7 @@ public class Tetris {
 		final Random random = new Random();
 		gen(random, next);
 		State state = State.PLACE_NEXT;
+		int score = 0;
 		while (true) {
 			switch (state) {
 				case PLACE_NEXT:
@@ -185,7 +192,8 @@ public class Tetris {
 					} else {
 						state = State.LOST;
 						SwingUtilities.invokeLater(() -> {
-							gameOverLabel.setText("Game over");
+							statsPanel.add(gameOverLabel);
+							boundsUpdater.run();
 							statsPanel.repaint();
 						});
 						SwingUtilities.invokeLater(tetris::repaint);
@@ -209,6 +217,32 @@ public class Tetris {
 						state = State.LET_USER_MOVE;
 					} else {
 						set(board, tetra, 1);
+						int y = 0;
+						while (y < 20) {
+							boolean full = true;
+							for (int x = 0; x < 10; x++) {
+								if (board[x][y] == 0) {
+									full = false;
+									break;
+								}
+							}
+							if (full) {
+								score++;
+								final int finalScore = score;
+								SwingUtilities.invokeLater(() -> {
+									scoreField.setText("" + finalScore);
+									boundsUpdater.run();
+									scoreField.repaint();
+								});
+								for (int x = 0; x < 10; x++) {
+									board[x][y] = 0;
+									System.arraycopy(board[x], y + 1, board[x], y, 19 - y);
+									board[x][19] = 0;
+								}
+							} else {
+								y++;
+							}
+						}
 						state = State.PLACE_NEXT;
 					}
 					break;
