@@ -10,9 +10,10 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -53,7 +54,6 @@ public class Tetris {
 	}
 
 	public static final int CELL_SIZE = 32;
-	public static final Color TILE_COLOR = Color.BLUE;
 
 	public static void main(String[] args) throws Exception {
 		final ReentrantLock lock = new ReentrantLock();
@@ -69,6 +69,7 @@ public class Tetris {
 		final int[][] tetra = new int[5][2];
 
 		final JFrame tetris = new JFrame("Tetris");
+		final Random random = new Random();
 
 		tetris.setBackground(Color.GRAY);
 
@@ -78,6 +79,13 @@ public class Tetris {
 				super.paintComponent(g);
 				g.setColor(Color.BLACK);
 				g.fillRect(0, 0, width, height);
+				for (int i = 0; i < 4; i++) {
+					final int[] tile = tetra[i];
+					final int x = tile[0];
+					final int y = tile[1];
+					g.setColor(COLORS[tetra[4][0]]);
+					g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
+				}
 				for (int x = 0; x < board.length; x++) {
 					for (int y = 0; y < board[0].length; y++) {
 						if (board[x][y] > 0) {
@@ -85,13 +93,6 @@ public class Tetris {
 							g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
 						}
 					}
-				}
-				for (int i = 0; i < 4; i++) {
-					final int[] tile = tetra[i];
-					final int x = tile[0];
-					final int y = tile[1];
-					g.setColor(COLORS[tetra[4][0]]);
-					g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
 				}
 			}
 		};
@@ -109,6 +110,17 @@ public class Tetris {
 		statsPanel.add(scoreField);
 		final JLabel gameOverLabel = new JLabel("");
 		gameOverLabel.setText("Game over");
+		final JButton newGameButton = new JButton("New game");
+		final AtomicBoolean newGame = new AtomicBoolean();
+		newGameButton.addActionListener(e -> {
+			lock.lock();
+			try {
+				newGame.set(true);
+				condition.signalAll();
+			} finally {
+				lock.unlock();
+			}
+		});
 
 		final Runnable boundsUpdater = () -> {
 			boardPanel.setBounds(0, 0, boardWidth, height);
@@ -116,6 +128,7 @@ public class Tetris {
 			scoreLabel.setBounds(10, 10, 80, 24);
 			scoreField.setBounds(10, 40, 80, 24);
 			gameOverLabel.setBounds(10, 70, 80, 24);
+			newGameButton.setBounds(10, 100, 100, 24);
 			tetris.setSize(new Dimension(width, height + 20));
 		};
 
@@ -205,7 +218,6 @@ public class Tetris {
 
 		tetris.setVisible(true);
 
-		final Random random = new Random();
 		gen(random, next);
 		State state = State.PLACE_NEXT;
 		int score = 0;
@@ -221,11 +233,12 @@ public class Tetris {
 						gen(random, next);
 						state = State.LET_USER_MOVE;
 					} else {
+						set(board, next);
 						state = State.LOST;
 						SwingUtilities.invokeLater(() -> {
 							statsPanel.add(gameOverLabel);
+							statsPanel.add(newGameButton);
 							boundsUpdater.run();
-							statsPanel.repaint();
 						});
 						SwingUtilities.invokeLater(tetris::repaint);
 					}
@@ -285,6 +298,25 @@ public class Tetris {
 					}
 					finally {
 						lock.unlock();
+					}
+					if (newGame.get()) {
+						for (int x = 0; x < 10; x++) {
+							for (int y = 0; y < 20; y++) {
+								board[x][y] = 0;
+							}
+						}
+						gen(random, next);
+						state = State.PLACE_NEXT;
+						score = 0;
+						final int finalScore1 = score;
+						SwingUtilities.invokeLater(() -> {
+							scoreField.setText("" + finalScore1);
+							statsPanel.remove(gameOverLabel);
+							statsPanel.remove(newGameButton);
+							boundsUpdater.run();
+							tetris.repaint();
+						});
+						newGame.set(false);
 					}
 					break;
 			}
