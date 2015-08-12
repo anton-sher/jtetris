@@ -9,6 +9,9 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -32,6 +35,9 @@ public class Tetris {
 	public static final Color TILE_COLOR = Color.BLUE;
 
 	public static void main(String[] args) throws Exception {
+		final ReentrantLock lock = new ReentrantLock();
+		final Condition condition = lock.newCondition();
+
 		final int height = CELL_SIZE * 20 + 21;
 		final int boardWidth = CELL_SIZE * 10 + 11;
 		final int statsWidth = 120;
@@ -133,6 +139,20 @@ public class Tetris {
 							tetris.repaint();
 						}
 						break;
+					case KeyEvent.VK_SPACE:
+						while (canMoveDown(board, tetra)) {
+							for (int[] tile : tetra) {
+								tile[1]--;
+							}
+						}
+						lock.lock();
+						try {
+							condition.signalAll();
+						}
+						finally {
+							lock.unlock();
+						}
+						tetris.repaint();
 				}
 			}
 		});
@@ -163,12 +183,22 @@ public class Tetris {
 						gen(random, next);
 						state = State.LET_USER_MOVE;
 					} else {
-						gameOverLabel.setText("Game over");
 						state = State.LOST;
+						SwingUtilities.invokeLater(() -> {
+							gameOverLabel.setText("Game over");
+							statsPanel.repaint();
+						});
+						SwingUtilities.invokeLater(tetris::repaint);
 					}
 					break;
 				case LET_USER_MOVE:
-					Thread.sleep(1000);
+					lock.lock();
+					try {
+						condition.await(500, TimeUnit.MILLISECONDS);
+					}
+					finally {
+						lock.unlock();
+					}
 					state = State.MOVE_DOWN;
 					break;
 				case MOVE_DOWN:
@@ -183,6 +213,13 @@ public class Tetris {
 					}
 					break;
 				case LOST:
+					lock.lock();
+					try {
+						condition.await(500, TimeUnit.MILLISECONDS);
+					}
+					finally {
+						lock.unlock();
+					}
 					break;
 			}
 			SwingUtilities.invokeLater(boardPanel::repaint);
