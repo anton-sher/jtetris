@@ -21,27 +21,29 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 public class Tetris {
-	public static final int[][][] SHAPES = new int[][][] {
-																												{ {3, 19}, {4, 19}, {5, 19}, {6, 19}}, // hor. stick
-																												{ {5, 16}, {5, 17}, {5, 18}, {5, 19}}, // ver. stick
-																												{ {4, 19}, {5, 19}, {4, 18}, {5, 18}}, // square
-																												{ {4, 19}, {5, 19}, {6, 19}, {5, 18}}, // pin 1
-																												{ {4, 18}, {5, 18}, {6, 18}, {5, 19}}, // pin 2
-																												{ {5, 17}, {5, 18}, {5, 19}, {4, 18}}, // pin 3
-																												{ {4, 17}, {4, 18}, {4, 19}, {5, 18}}, // pin 4
-																												{ {4, 17}, {4, 18}, {4, 19}, {5, 17}}, // right leg 1
-																												{ {4, 18}, {5, 18}, {6, 18}, {6, 19}}, // right leg 2
-																												{ {5, 17}, {5, 18}, {5, 19}, {4, 19}}, // right leg 3
-																												{ {4, 19}, {5, 19}, {6, 19}, {4, 18}}, // right leg 4
-																												{ {5, 17}, {5, 18}, {5, 19}, {4, 17}}, // left leg 1
-																												{ {4, 19}, {5, 19}, {6, 19}, {6, 18}}, // left leg 2
-																												{ {4, 17}, {4, 18}, {4, 19}, {5, 19}}, // left leg 3
-																												{ {4, 18}, {5, 18}, {6, 18}, {4, 19}}, // left leg 4
-																												{ {4, 18}, {5, 18}, {5, 19}, {6, 19}}, // z 1
-																												{ {4, 17}, {4, 18}, {5, 18}, {5, 19}}, // z 2
-																												{ {4, 18}, {4, 19}, {5, 17}, {5, 18}}, // reverse z 1
-																												{ {4, 19}, {5, 19}, {5, 18}, {6, 18}}, // reverse z 2
+	public static final int[][][] TETRAS = new int[][][] {
+																												{ {3, 19}, {4, 19}, {5, 19}, {6, 19}, {1, 0}}, // hor. stick
+																												{ {5, 16}, {5, 17}, {5, 18}, {5, 19}, {1, 0}}, // ver. stick
+																												{ {4, 19}, {5, 19}, {4, 18}, {5, 18}, {2, 0}}, // square
+																												{ {4, 19}, {5, 19}, {6, 19}, {5, 18}, {3, 0}}, // pin 1
+																												{ {4, 18}, {5, 18}, {6, 18}, {5, 19}, {3, 0}}, // pin 2
+																												{ {5, 17}, {5, 18}, {5, 19}, {4, 18}, {3, 0}}, // pin 3
+																												{ {4, 17}, {4, 18}, {4, 19}, {5, 18}, {3, 0}}, // pin 4
+																												{ {4, 17}, {4, 18}, {4, 19}, {5, 17}, {4, 0}}, // right leg 1
+																												{ {4, 18}, {5, 18}, {6, 18}, {6, 19}, {4, 0}}, // right leg 2
+																												{ {5, 17}, {5, 18}, {5, 19}, {4, 19}, {4, 0}}, // right leg 3
+																												{ {4, 19}, {5, 19}, {6, 19}, {4, 18}, {4, 0}}, // right leg 4
+																												{ {5, 17}, {5, 18}, {5, 19}, {4, 17}, {5, 0}}, // left leg 1
+																												{ {4, 19}, {5, 19}, {6, 19}, {6, 18}, {5, 0}}, // left leg 2
+																												{ {4, 17}, {4, 18}, {4, 19}, {5, 19}, {5, 0}}, // left leg 3
+																												{ {4, 18}, {5, 18}, {6, 18}, {4, 19}, {5, 0}}, // left leg 4
+																												{ {4, 18}, {5, 18}, {5, 19}, {6, 19}, {6, 0}}, // z 1
+																												{ {4, 18}, {4, 19}, {5, 17}, {5, 18}, {6, 0}}, // z 2
+																												{ {4, 19}, {5, 19}, {5, 18}, {6, 18}, {7, 0}}, // reverse z 1
+																												{ {4, 17}, {4, 18}, {5, 18}, {5, 19}, {7, 0}}, // reverse z 2
 	};
+
+	public static final Color[] COLORS = {Color.BLACK, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.YELLOW, Color.RED, Color.CYAN, Color.ORANGE};
 
 	enum State {
 		PLACE_NEXT,
@@ -63,8 +65,8 @@ public class Tetris {
 		final int width = boardWidth + statsWidth;
 
 		final int[][] board = new int[10][20];
-		final int[][] next = new int[4][2];
-		final int[][] tetra = new int[4][2];
+		final int[][] next = new int[5][2];
+		final int[][] tetra = new int[5][2];
 
 		final JFrame tetris = new JFrame("Tetris");
 
@@ -79,15 +81,16 @@ public class Tetris {
 				for (int x = 0; x < board.length; x++) {
 					for (int y = 0; y < board[0].length; y++) {
 						if (board[x][y] > 0) {
-							g.setColor(TILE_COLOR);
+							g.setColor(COLORS[board[x][y]]);
 							g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
 						}
 					}
 				}
-				for (int[] tile : tetra) {
+				for (int i = 0; i < 4; i++) {
+					final int[] tile = tetra[i];
 					final int x = tile[0];
 					final int y = tile[1];
-					g.setColor(TILE_COLOR);
+					g.setColor(COLORS[tetra[4][0]]);
 					g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
 				}
 			}
@@ -140,7 +143,8 @@ public class Tetris {
 				switch (e.getKeyCode()) {
 					case KeyEvent.VK_LEFT:
 						if (canMoveLeft(board, tetra)) {
-							for (int[] tile : tetra) {
+							for (int i = 0; i < 4; i++) {
+								final int[] tile = tetra[i];
 								tile[0]--;
 							}
 							tetris.repaint();
@@ -148,7 +152,8 @@ public class Tetris {
 						break;
 					case KeyEvent.VK_RIGHT:
 						if (canMoveRight(board, tetra)) {
-							for (int[] tile : tetra) {
+							for (int i = 0; i < 4; i++) {
+								final int[] tile = tetra[i];
 								tile[0]++;
 							}
 							tetris.repaint();
@@ -158,11 +163,13 @@ public class Tetris {
 						int[][] rotated = rotate(tetra);
 						if (canPlace(board, rotated)) {
 							System.arraycopy(rotated, 0, tetra, 0, 4);
+							tetris.repaint();
 						}
 						break;
 					case KeyEvent.VK_DOWN:
 						if (canMoveDown(board, tetra)) {
-							for (int[] tile : tetra) {
+							for (int i = 0; i < 4; i++) {
+								final int[] tile = tetra[i];
 								tile[1]--;
 							}
 							tetris.repaint();
@@ -170,7 +177,8 @@ public class Tetris {
 						break;
 					case KeyEvent.VK_SPACE:
 						while (canMoveDown(board, tetra)) {
-							for (int[] tile : tetra) {
+							for (int i = 0; i < 4; i++) {
+								final int[] tile = tetra[i];
 								tile[1]--;
 							}
 						}
@@ -234,12 +242,13 @@ public class Tetris {
 					break;
 				case MOVE_DOWN:
 					if (canMoveDown(board, tetra)) {
-						for (int[] tile : tetra) {
+						for (int i = 0; i < 4; i++) {
+							final int[] tile = tetra[i];
 							tile[1]--;
 						}
 						state = State.LET_USER_MOVE;
 					} else {
-						set(board, tetra, 1);
+						set(board, tetra);
 						int y = 0;
 						while (y < 20) {
 							boolean full = true;
@@ -286,34 +295,36 @@ public class Tetris {
 	private static int[][] rotate(final int[][] tetra) {
 		int xCenter = 0;
 		int yCenter = 0;
-		for (int[] tile : tetra) {
+		for (int i = 0; i < 4; i++) {
+			final int[] tile = tetra[i];
 			xCenter += tile[0];
 			yCenter += tile[1];
 		}
 		xCenter /= 4;
 		yCenter /= 4;
 
-		final int[][] rotated = new int[4][2];
-		for (int i = 0; i < tetra.length; i++) {
+		final int[][] rotated = new int[5][2];
+		for (int i = 0; i < 4; i++) {
 			final int[] tile = tetra[i];
 			rotated[i][0] = xCenter + yCenter - tile[1];
 			rotated[i][1] = yCenter + tile[0] - xCenter;
 		}
+		rotated[4][0] = tetra[4][0];
 
 		return rotated;
 	}
 
-	private static void set(final int[][] board,
-													final int[][] tetra,
-													final int value) {
-		for (int[] tile : tetra) {
-			board[tile[0]][tile[1]] = value;
+	private static void set(final int[][] board, final int[][] tetra) {
+		for (int i = 0; i < 4; i++) {
+			final int[] tile = tetra[i];
+			board[tile[0]][tile[1]] = tetra[4][0];
 		}
 	}
 
 	private static boolean canMoveLeft(	final int[][] board,
 																			final int[][] tetra) {
-		for (int[] points : tetra) {
+		for (int i = 0; i < 4; i++) {
+			final int[] points = tetra[i];
 			if (points[0] == 0 || board[points[0] - 1][points[1]] > 0) {
 				return false;
 			}
@@ -323,7 +334,8 @@ public class Tetris {
 
 	private static boolean canMoveRight(final int[][] board,
 																			final int[][] tetra) {
-		for (int[] points : tetra) {
+		for (int i = 0; i < 4; i++) {
+			final int[] points = tetra[i];
 			if (points[0] == 9 || board[points[0] + 1][points[1]] > 0) {
 				return false;
 			}
@@ -333,7 +345,8 @@ public class Tetris {
 
 	private static boolean canMoveDown(	final int[][] board,
 																			final int[][] tetra) {
-		for (int[] points : tetra) {
+		for (int i = 0; i < 4; i++) {
+			final int[] points = tetra[i];
 			if (points[1] == 0 || board[points[0]][points[1] - 1] > 0) {
 				return false;
 			}
@@ -343,7 +356,8 @@ public class Tetris {
 
 	private static boolean canPlace(final int[][] board,
 																	final int[][] next) {
-		for (int[] points : next) {
+		for (int i = 0; i < 4; i++) {
+			final int[] points = next[i];
 			if (board[points[0]][points[1]] > 0) {
 				return false;
 			}
@@ -352,15 +366,13 @@ public class Tetris {
 		return true;
 	}
 
-	static int counter;
 	private static void gen(final Random random,
 													final int[][] next) {
-//		final int[][] shape = SHAPES[random.nextInt(SHAPES.length)];
-		final int[][] shape = SHAPES[counter++ % SHAPES.length];
+		final int[][] tetra = TETRAS[random.nextInt(TETRAS.length)];
 
-		for (int i = 0; i < 4; i++) {
-			next[i][0] = shape[i][0];
-			next[i][1] = shape[i][1];
+		for (int i = 0; i < 5; i++) {
+			next[i][0] = tetra[i][0];
+			next[i][1] = tetra[i][1];
 		}
 	}
 }
