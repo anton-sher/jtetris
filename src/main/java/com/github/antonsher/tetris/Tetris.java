@@ -59,6 +59,12 @@ public class Tetris {
 						}
 					}
 				}
+				for (int[] tile : tetra) {
+					final int x = tile[0];
+					final int y = tile[1];
+					g.setColor(TILE_COLOR);
+					g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
+				}
 			}
 		};
 		boardPanel.setBackground(Color.BLACK);
@@ -73,6 +79,8 @@ public class Tetris {
 		final JTextField scoreField = new JTextField("0");
 		scoreField.setEditable(false);
 		statsPanel.add(scoreField);
+		final JLabel gameOverLabel = new JLabel("");
+		statsPanel.add(gameOverLabel);
 
 		tetris.addComponentListener(new ComponentAdapter() {
 			@Override
@@ -92,6 +100,7 @@ public class Tetris {
 				statsPanel.setBounds(boardWidth, 0, statsWidth, height);
 				scoreLabel.setBounds(10, 10, 80, 24);
 				scoreField.setBounds(10, 40, 80, 24);
+				gameOverLabel.setBounds(10, 70, 80, 24);
 				tetris.setSize(new Dimension(width, height + 20));
 			}
 		});
@@ -102,21 +111,25 @@ public class Tetris {
 				switch (e.getKeyCode()) {
 					case KeyEvent.VK_LEFT:
 						if (canMoveLeft(board, tetra)) {
-							set(board, tetra, 0);
 							for (int[] tile : tetra) {
 								tile[0]--;
 							}
-							set(board, tetra, 1);
 							tetris.repaint();
 						}
 						break;
 					case KeyEvent.VK_RIGHT:
 						if (canMoveRight(board, tetra)) {
-							set(board, tetra, 0);
 							for (int[] tile : tetra) {
 								tile[0]++;
 							}
-							set(board, tetra, 1);
+							tetris.repaint();
+						}
+						break;
+					case KeyEvent.VK_DOWN:
+						if (canMoveDown(board, tetra)) {
+							for (int[] tile : tetra) {
+								tile[1]--;
+							}
 							tetris.repaint();
 						}
 						break;
@@ -147,10 +160,10 @@ public class Tetris {
 							tetra[i][0] = tile[0];
 							tetra[i][1] = tile[1];
 						}
-						set(board, tetra, 1);
 						gen(random, next);
 						state = State.LET_USER_MOVE;
 					} else {
+						gameOverLabel.setText("Game over");
 						state = State.LOST;
 					}
 					break;
@@ -160,13 +173,12 @@ public class Tetris {
 					break;
 				case MOVE_DOWN:
 					if (canMoveDown(board, tetra)) {
-						set(board, tetra, 0);
 						for (int[] tile : tetra) {
 							tile[1]--;
 						}
-						set(board, tetra, 1);
 						state = State.LET_USER_MOVE;
 					} else {
+						set(board, tetra, 1);
 						state = State.PLACE_NEXT;
 					}
 					break;
