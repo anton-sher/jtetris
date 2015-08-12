@@ -21,10 +21,26 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 public class Tetris {
-
 	public static final int[][][] SHAPES = new int[][][] {
 																												{ {3, 19}, {4, 19}, {5, 19}, {6, 19}}, // hor. stick
+																												{ {5, 16}, {5, 17}, {5, 18}, {5, 19}}, // ver. stick
 																												{ {4, 19}, {5, 19}, {4, 18}, {5, 18}}, // square
+																												{ {4, 19}, {5, 19}, {6, 19}, {5, 18}}, // pin 1
+																												{ {4, 18}, {5, 18}, {6, 18}, {5, 19}}, // pin 2
+																												{ {5, 17}, {5, 18}, {5, 19}, {4, 18}}, // pin 3
+																												{ {4, 17}, {4, 18}, {4, 19}, {5, 18}}, // pin 4
+																												{ {4, 17}, {4, 18}, {4, 19}, {5, 17}}, // right leg 1
+																												{ {4, 18}, {5, 18}, {6, 18}, {6, 19}}, // right leg 2
+																												{ {5, 17}, {5, 18}, {5, 19}, {4, 19}}, // right leg 3
+																												{ {4, 19}, {5, 19}, {6, 19}, {4, 18}}, // right leg 4
+																												{ {5, 17}, {5, 18}, {5, 19}, {4, 17}}, // left leg 1
+																												{ {4, 19}, {5, 19}, {6, 19}, {6, 18}}, // left leg 2
+																												{ {4, 17}, {4, 18}, {4, 19}, {5, 19}}, // left leg 3
+																												{ {4, 18}, {5, 18}, {6, 18}, {4, 19}}, // left leg 4
+																												{ {4, 18}, {5, 18}, {5, 19}, {6, 19}}, // z 1
+																												{ {4, 17}, {4, 18}, {5, 18}, {5, 19}}, // z 2
+																												{ {4, 18}, {4, 19}, {5, 17}, {5, 18}}, // reverse z 1
+																												{ {4, 19}, {5, 19}, {5, 18}, {6, 18}}, // reverse z 2
 	};
 
 	enum State {
@@ -336,9 +352,11 @@ public class Tetris {
 		return true;
 	}
 
+	static int counter;
 	private static void gen(final Random random,
 													final int[][] next) {
-		final int[][] shape = SHAPES[random.nextInt(SHAPES.length)];
+//		final int[][] shape = SHAPES[random.nextInt(SHAPES.length)];
+		final int[][] shape = SHAPES[counter++ % SHAPES.length];
 
 		for (int i = 0; i < 4; i++) {
 			next[i][0] = shape[i][0];
