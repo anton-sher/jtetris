@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -24,7 +25,6 @@ import javax.swing.WindowConstants;
 /**
  * TODOs:
  * - next fig
- * - pause
  * - high scores
  * - refactor
  */
@@ -127,16 +127,18 @@ public class Tetris {
 		final JTextField levelField = new JTextField("0");
 		levelField.setEditable(false);
 		statsPanel.add(levelField);
-		final JLabel gameOverLabel = new JLabel("");
-		gameOverLabel.setText("Game over");
+		final JLabel gameOverLabel = new JLabel("Game over");
+		final JLabel pauseLabel = new JLabel("Pause");
 		final JButton newGameButton = new JButton("New game");
 		final AtomicBoolean newGame = new AtomicBoolean();
+		final AtomicBoolean pause = new AtomicBoolean();
 		newGameButton.addActionListener(e -> {
 			lock.lock();
 			try {
 				newGame.set(true);
 				condition.signalAll();
-			} finally {
+			}
+			finally {
 				lock.unlock();
 			}
 		});
@@ -158,6 +160,7 @@ public class Tetris {
 			levelField.setBounds(10, y, 80, 24);
 			y += 30;
 			gameOverLabel.setBounds(10, y, 80, 24);
+			pauseLabel.setBounds(10, y, 80, 24);
 			y += 30;
 			newGameButton.setBounds(10, y, 100, 24);
 			y += 30;
@@ -185,6 +188,25 @@ public class Tetris {
 		boardPanel.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyReleased(final KeyEvent e) {
+				if (e.getKeyCode() == KeyEvent.VK_P) {
+					pause.set(!pause.get());
+					if (!pause.get()) {
+						statsPanel.remove(pauseLabel);
+						lock.lock();
+						try {
+							condition.signalAll();
+						}
+						finally {
+							lock.unlock();
+						}
+					} else {
+						statsPanel.add(pauseLabel);
+					}
+					tetris.repaint();
+				}
+				if (pause.get()) {
+					return;
+				}
 				switch (e.getKeyCode()) {
 					case KeyEvent.VK_LEFT:
 						if (canMoveLeft(board, tetra)) {
@@ -235,6 +257,7 @@ public class Tetris {
 							lock.unlock();
 						}
 						tetris.repaint();
+						break;
 				}
 			}
 		});
@@ -282,6 +305,15 @@ public class Tetris {
 					lock.lock();
 					try {
 						condition.await(1000 / (level + 1), TimeUnit.MILLISECONDS);
+						while (pause.get()) {
+							lock.lock();
+							try {
+								condition.await(50, TimeUnit.MILLISECONDS);
+							}
+							finally {
+								lock.unlock();
+							}
+						}
 					}
 					finally {
 						lock.unlock();
@@ -407,7 +439,8 @@ public class Tetris {
 		return rotated;
 	}
 
-	private static void set(final int[][] board, final int[][] tetra) {
+	private static void set(final int[][] board,
+													final int[][] tetra) {
 		for (int i = 0; i < 4; i++) {
 			final int[] tile = tetra[i];
 			board[tile[0]][tile[1]] = tetra[4][0];
