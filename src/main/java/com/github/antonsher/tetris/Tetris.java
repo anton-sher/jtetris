@@ -87,7 +87,7 @@ public class Tetris {
 			public void paintComponent(final Graphics g) {
 				super.paintComponent(g);
 				g.setColor(Color.BLACK);
-				g.fillRect(0, 0, width, height);
+				g.fillRect(0, 0, getWidth(), getHeight());
 				for (int i = 0; i < 4; i++) {
 					final int[] tile = tetra[i];
 					final int x = tile[0];
@@ -111,6 +111,31 @@ public class Tetris {
 
 		final JPanel statsPanel = new JPanel();
 		tetris.add(statsPanel);
+
+		final JPanel nextPanel = new JPanel() {
+			@Override
+			protected void paintComponent(final Graphics g) {
+				super.paintComponent(g);
+				g.setColor(Color.BLACK);
+				g.fillRect(0, 0, getWidth(), getHeight());
+				int minX = Integer.MAX_VALUE;
+				int maxX = Integer.MIN_VALUE;
+				int maxY = Integer.MIN_VALUE;
+				for (int i = 0; i < 4; i++) {
+					minX = Math.min(next[i][0], minX);
+					maxX = Math.max(next[i][0], maxX);
+					maxY = Math.max(next[i][1], maxY);
+				}
+				g.setColor(COLORS[next[4][0]]);
+				for (int i = 0; i < 4; i++) {
+					int x = next[i][0] - minX;
+					int y = maxY - next[i][1];
+					if (maxX - minX < 2) x++;
+					g.fillRect(1 + x * 21, 1 + y * 21, 20, 20);
+				}
+			}
+		};
+		statsPanel.add(nextPanel);
 
 		final JLabel scoreLabel = new JLabel("Score");
 		statsPanel.add(scoreLabel);
@@ -147,6 +172,8 @@ public class Tetris {
 			boardPanel.setBounds(0, 0, boardWidth, height);
 			statsPanel.setBounds(boardWidth, 0, statsWidth, height);
 			int y = 10;
+			nextPanel.setBounds(10, y, 85, 85);
+			y += 90;
 			scoreLabel.setBounds(10, y, 80, 24);
 			y += 30;
 			scoreField.setBounds(10, y, 80, 24);
