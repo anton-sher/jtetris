@@ -100,10 +100,10 @@ public class Tetris {
                 g.setColor(Color.BLACK);
                 g.fillRect(0, 0, getWidth(), getHeight());
                 for (int i = 0; i < 4; i++) {
-                    int[] tile = tetra[i];
-                    int x = tile[0];
-                    int y = tile[1];
-                    g.setColor(COLORS[tetra[4][0]]);
+                    final int[][] tetra = Tetris.this.tetra;
+                    int x = getTetraX(i, tetra);
+                    int y = getTetraY(i, tetra);
+                    g.setColor(COLORS[getTetraKind(tetra)]);
                     g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
                 }
                 for (int x = 0; x < board.length; x++) {
@@ -133,14 +133,14 @@ public class Tetris {
                 int maxX = Integer.MIN_VALUE;
                 int maxY = Integer.MIN_VALUE;
                 for (int i = 0; i < 4; i++) {
-                    minX = Math.min(next[i][0], minX);
-                    maxX = Math.max(next[i][0], maxX);
-                    maxY = Math.max(next[i][1], maxY);
+                    minX = Math.min(getTetraX(i, next), minX);
+                    maxX = Math.max(getTetraX(i, next), maxX);
+                    maxY = Math.max(getTetraY(i, next), maxY);
                 }
-                g.setColor(COLORS[next[4][0]]);
+                g.setColor(COLORS[getTetraKind(next)]);
                 for (int i = 0; i < 4; i++) {
                     int x = next[i][0] - minX;
-                    int y = maxY - next[i][1];
+                    int y = maxY - getTetraY(i, next);
                     if (maxX - minX < 2)
                         x++;
                     g.fillRect(1 + x * 21, 1 + y * 21, 20, 20);
@@ -457,12 +457,24 @@ public class Tetris {
         }
     }
 
+    private int getTetraY(int i, int[][] tetra) {
+        return tetra[i][1];
+    }
+
+    private int getTetraKind(int[][] tetra) {
+        return tetra[4][0];
+    }
+
+    private int getTetraX(int i, int[][] tetra) {
+        return tetra[i][0];
+    }
+
     private void generateNext() {
         int[][] tetra1 = TETRAS[random.nextInt(TETRAS.length)];
 
         for (int i = 0; i < 5; i++) {
-            next[i][0] = tetra1[i][0];
-            next[i][1] = tetra1[i][1];
+            next[i][0] = getTetraX(i, tetra1);
+            next[i][1] = getTetraY(i, tetra1);
         }
     }
 
@@ -540,16 +552,20 @@ public class Tetris {
             rotated[i][0] = xCenter + yCenter - tile[1];
             rotated[i][1] = yCenter + tile[0] - xCenter;
         }
-        rotated[4][0] = tetra[4][0];
+        setTetraKind(rotated, getTetraKind(tetra));
 
         return rotated;
+    }
+
+    private void setTetraKind(int[][] rotated, int kind) {
+        rotated[4][0] = kind;
     }
 
     private void set(
             int[][] board, int[][] tetra) {
         for (int i = 0; i < 4; i++) {
             int[] tile = tetra[i];
-            board[tile[0]][tile[1]] = tetra[4][0];
+            board[tile[0]][tile[1]] = getTetraKind(tetra);
         }
     }
 
