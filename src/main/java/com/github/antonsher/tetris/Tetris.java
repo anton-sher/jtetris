@@ -36,7 +36,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 public class Tetris {
-    public static final int[][][] TETRAS = new int[][][]{{{3, 19}, {4, 19}, {5, 19}, {6, 19}, {1, 0}}, // hor. stick
+    int[][][] TETRAS = new int[][][]{
+            {{3, 19}, {4, 19}, {5, 19}, {6, 19}, {1, 0}}, // hor. stick
             {{5, 16}, {5, 17}, {5, 18}, {5, 19}, {1, 0}}, // ver. stick
             {{4, 19}, {5, 19}, {4, 18}, {5, 18}, {2, 0}}, // square
             {{4, 19}, {5, 19}, {6, 19}, {5, 18}, {3, 0}}, // pin 1
@@ -57,11 +58,28 @@ public class Tetris {
             {{4, 17}, {4, 18}, {5, 18}, {5, 19}, {7, 0}}, // reverse z 2
     };
 
-    private static final Color[] COLORS = {Color.BLACK, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.YELLOW, Color.RED, Color.CYAN, Color.ORANGE};
-    private static final int[] SCORES = {40, 100, 300, 1200};
-    private static final int LINES_PER_LEVEL = 20;
-    private static final File SCORES_FILE = new File(System.getProperty("user.home"), "tetris-highscores.txt");
-    private static final Pattern SCORE_LINE = Pattern.compile("(\\d{1,9});(.*)");
+    int CELL_SIZE = 32;
+    Color[] COLORS = {Color.BLACK, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.YELLOW, Color.RED, Color.CYAN, Color.ORANGE};
+    int[] SCORES = {40, 100, 300, 1200};
+    File SCORES_FILE = new File(System.getProperty("user.home"), "tetris-highscores.txt");
+    Pattern SCORE_LINE = Pattern.compile("(\\d{1,9});(.*)");
+    private int[][] board = new int[10][20];
+    private int[][] next = new int[5][2];
+    private int[][] tetra = new int[5][2];
+    private int height = CELL_SIZE * 20 + 21;
+    private int boardWidth = CELL_SIZE * 10 + 11;
+    private int statsWidth = 120;
+    private int width = boardWidth + statsWidth;
+    private Random random = new Random();
+    private List<Object[]> highScores = readScores();
+    private ReentrantLock lock = new ReentrantLock();
+    private Condition condition = lock.newCondition();
+    private int score = 0;
+    private int lines = 0;
+    private int level = 0;
+    private int LINES_PER_LEVEL = 20;
+    private int tillNext = LINES_PER_LEVEL;
+    private State state = State.PLACE_NEXT;
 
     enum State {
         PLACE_NEXT,
@@ -70,40 +88,21 @@ public class Tetris {
         LOST,
     }
 
-    public static final int CELL_SIZE = 32;
-
-    public static void main(String[] args)
-            throws Exception {
-        final ReentrantLock lock = new ReentrantLock();
-        final Condition condition = lock.newCondition();
-
-        final int height = CELL_SIZE * 20 + 21;
-        final int boardWidth = CELL_SIZE * 10 + 11;
-        final int statsWidth = 120;
-        final int width = boardWidth + statsWidth;
-
-        final int[][] board = new int[10][20];
-        final int[][] next = new int[5][2];
-        final int[][] tetra = new int[5][2];
-
-        final JFrame tetris = new JFrame("Tetris");
+    public void runGame() throws InterruptedException {
+        JFrame tetris = new JFrame("Tetris");
         tetris.setLayout(null);
-        final Random random = new Random();
-
         tetris.setBackground(Color.GRAY);
 
-        final List<Object[]> highScores = readScores();
-
-        final JPanel boardPanel = new JPanel() {
+        JPanel boardPanel = new JPanel() {
             @Override
-            public void paintComponent(final Graphics g) {
+            public void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 g.setColor(Color.BLACK);
                 g.fillRect(0, 0, getWidth(), getHeight());
                 for (int i = 0; i < 4; i++) {
-                    final int[] tile = tetra[i];
-                    final int x = tile[0];
-                    final int y = tile[1];
+                    int[] tile = tetra[i];
+                    int x = tile[0];
+                    int y = tile[1];
                     g.setColor(COLORS[tetra[4][0]]);
                     g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
                 }
@@ -121,12 +120,12 @@ public class Tetris {
 
         tetris.add(boardPanel);
 
-        final JPanel statsPanel = new JPanel(null);
+        JPanel statsPanel = new JPanel(null);
         tetris.add(statsPanel);
 
-        final JPanel nextPanel = new JPanel() {
+        JPanel nextPanel = new JPanel() {
             @Override
-            protected void paintComponent(final Graphics g) {
+            protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 g.setColor(Color.BLACK);
                 g.fillRect(0, 0, getWidth(), getHeight());
@@ -150,33 +149,33 @@ public class Tetris {
         };
         statsPanel.add(nextPanel);
 
-        final JLabel scoreLabel = new JLabel("Score");
+        JLabel scoreLabel = new JLabel("Score");
         statsPanel.add(scoreLabel);
-        final JTextField scoreField = new JTextField("0");
+        JTextField scoreField = new JTextField("0");
         scoreField.setEditable(false);
         statsPanel.add(scoreField);
-        final JLabel linesLabel = new JLabel("Lines");
+        JLabel linesLabel = new JLabel("Lines");
         statsPanel.add(linesLabel);
-        final JTextField linesField = new JTextField("0");
+        JTextField linesField = new JTextField("0");
         linesField.setEditable(false);
         statsPanel.add(linesField);
-        final JLabel levelLabel = new JLabel("Level");
+        JLabel levelLabel = new JLabel("Level");
         statsPanel.add(levelLabel);
-        final JTextField levelField = new JTextField("0");
+        JTextField levelField = new JTextField("0");
         levelField.setEditable(false);
         statsPanel.add(levelField);
-        final JLabel gameOverLabel = new JLabel("Game over");
-        final JLabel pauseLabel = new JLabel("Pause");
-        final JButton newGameButton = new JButton("New game");
-        final JLabel highScoresLabel = new JLabel("High scores");
+        JLabel gameOverLabel = new JLabel("Game over");
+        JLabel pauseLabel = new JLabel("Pause");
+        JButton newGameButton = new JButton("New game");
+        JLabel highScoresLabel = new JLabel("High scores");
         statsPanel.add(highScoresLabel);
-        final JTextArea highScoresArea = new JTextArea();
+        JTextArea highScoresArea = new JTextArea();
         highScoresArea.setEditable(false);
         highScoresArea.setFont(new Font("monospaced", Font.PLAIN, 12));
         highScoresArea.setText(makeScoresText(highScores));
         statsPanel.add(highScoresArea);
-        final AtomicBoolean newGame = new AtomicBoolean();
-        final AtomicBoolean pause = new AtomicBoolean();
+        AtomicBoolean newGame = new AtomicBoolean();
+        AtomicBoolean pause = new AtomicBoolean();
         newGameButton.addActionListener(e -> {
             lock.lock();
             try {
@@ -187,7 +186,7 @@ public class Tetris {
             }
         });
 
-        final Runnable boundsUpdater = () -> {
+        Runnable boundsUpdater = () -> {
             boardPanel.setBounds(0, 0, boardWidth, height);
             statsPanel.setBounds(boardWidth, 0, statsWidth, height);
             int y = 10;
@@ -218,13 +217,13 @@ public class Tetris {
 
         tetris.addComponentListener(new ComponentAdapter() {
             @Override
-            public void componentResized(final ComponentEvent e) {
+            public void componentResized(ComponentEvent e) {
                 super.componentResized(e);
                 updateBounds();
             }
 
             @Override
-            public void componentMoved(final ComponentEvent e) {
+            public void componentMoved(ComponentEvent e) {
                 super.componentMoved(e);
                 updateBounds();
             }
@@ -236,7 +235,7 @@ public class Tetris {
 
         boardPanel.addKeyListener(new KeyAdapter() {
             @Override
-            public void keyReleased(final KeyEvent e) {
+            public void keyReleased(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_P) {
                     pause.set(!pause.get());
                     if (!pause.get()) {
@@ -259,41 +258,37 @@ public class Tetris {
                     case KeyEvent.VK_LEFT:
                         if (canMoveLeft(board, tetra)) {
                             for (int i = 0; i < 4; i++) {
-                                final int[] tile = tetra[i];
+                                int[] tile = tetra[i];
                                 tile[0]--;
                             }
-                            tetris.repaint();
                         }
                         break;
                     case KeyEvent.VK_RIGHT:
                         if (canMoveRight(board, tetra)) {
                             for (int i = 0; i < 4; i++) {
-                                final int[] tile = tetra[i];
+                                int[] tile = tetra[i];
                                 tile[0]++;
                             }
-                            tetris.repaint();
                         }
                         break;
                     case KeyEvent.VK_UP:
                         int[][] rotated = rotate(tetra);
                         if (canPlace(board, rotated)) {
                             System.arraycopy(rotated, 0, tetra, 0, 4);
-                            tetris.repaint();
                         }
                         break;
                     case KeyEvent.VK_DOWN:
                         if (canMoveDown(board, tetra)) {
                             for (int i = 0; i < 4; i++) {
-                                final int[] tile = tetra[i];
+                                int[] tile = tetra[i];
                                 tile[1]--;
                             }
-                            tetris.repaint();
                         }
                         break;
                     case KeyEvent.VK_SPACE:
                         while (canMoveDown(board, tetra)) {
                             for (int i = 0; i < 4; i++) {
-                                final int[] tile = tetra[i];
+                                int[] tile = tetra[i];
                                 tile[1]--;
                             }
                         }
@@ -303,9 +298,9 @@ public class Tetris {
                         } finally {
                             lock.unlock();
                         }
-                        tetris.repaint();
                         break;
                 }
+                tetris.repaint();
             }
         });
 
@@ -320,31 +315,25 @@ public class Tetris {
 
         tetris.setVisible(true);
 
-        gen(random, next);
-        State state = State.PLACE_NEXT;
-        int score = 0;
-        int lines = 0;
-        int level = 0;
-        int tillNext = LINES_PER_LEVEL;
+        generateNext();
         while (true) {
             switch (state) {
                 case PLACE_NEXT:
                     if (canPlace(board, next)) {
                         for (int i = 0; i < next.length; i++) {
-                            final int[] tile = next[i];
+                            int[] tile = next[i];
                             tetra[i][0] = tile[0];
                             tetra[i][1] = tile[1];
                         }
-                        gen(random, next);
+                        generateNext();
                         state = State.LET_USER_MOVE;
                     } else {
                         set(board, next);
                         state = State.LOST;
-                        final int finalScore1 = score;
                         SwingUtilities.invokeLater(() -> {
-                            if (finalScore1 > 0 && (highScores.size() < 10 || (int) highScores.get(0)[0] < finalScore1)) {
-                                final String name = (String) JOptionPane.showInputDialog(tetris, "Enter your name", "High score!", JOptionPane.QUESTION_MESSAGE, null, null, null);
-                                highScores.add(0, new Object[]{finalScore1, name == null ? "" : name});
+                            if (score > 0 && (highScores.size() < 10 || (int) highScores.get(0)[0] < score)) {
+                                String name = (String) JOptionPane.showInputDialog(tetris, "Enter your name", "High score!", JOptionPane.QUESTION_MESSAGE, null, null, null);
+                                highScores.add(0, new Object[]{score, name == null ? "" : name});
                                 sortScores(highScores);
                                 if (highScores.size() > 10) {
                                     highScores.remove(0);
@@ -381,7 +370,7 @@ public class Tetris {
                 case MOVE_DOWN:
                     if (canMoveDown(board, tetra)) {
                         for (int i = 0; i < 4; i++) {
-                            final int[] tile = tetra[i];
+                            int[] tile = tetra[i];
                             tile[1]--;
                         }
                         state = State.LET_USER_MOVE;
@@ -411,11 +400,9 @@ public class Tetris {
                                 lines += atOnce;
                                 tillNext -= atOnce;
                                 score += SCORES[atOnce - 1] * (level + 1);
-                                final int finalScore = score;
-                                final int finalLines = lines;
                                 SwingUtilities.invokeLater(() -> {
-                                    scoreField.setText("" + finalScore);
-                                    linesField.setText("" + finalLines);
+                                    scoreField.setText("" + score);
+                                    linesField.setText("" + lines);
                                     boundsUpdater.run();
                                     tetris.repaint();
                                 });
@@ -423,9 +410,8 @@ public class Tetris {
                             if (tillNext <= 0) {
                                 tillNext += LINES_PER_LEVEL;
                                 level++;
-                                final int finalLevel = level;
                                 SwingUtilities.invokeLater(() -> {
-                                    levelField.setText("" + finalLevel);
+                                    levelField.setText("" + level);
                                     boundsUpdater.run();
                                     tetris.repaint();
                                 });
@@ -447,7 +433,7 @@ public class Tetris {
                                 board[x][y] = 0;
                             }
                         }
-                        gen(random, next);
+                        generateNext();
                         state = State.PLACE_NEXT;
                         score = 0;
                         lines = 0;
@@ -471,7 +457,16 @@ public class Tetris {
         }
     }
 
-    private static String makeScoresText(List<Object[]> highScores) {
+    private void generateNext() {
+        int[][] tetra1 = TETRAS[random.nextInt(TETRAS.length)];
+
+        for (int i = 0; i < 5; i++) {
+            next[i][0] = tetra1[i][0];
+            next[i][1] = tetra1[i][1];
+        }
+    }
+
+    private String makeScoresText(List<Object[]> highScores) {
         if (highScores.isEmpty()) {
             return "";
         }
@@ -489,7 +484,7 @@ public class Tetris {
         return scores;
     }
 
-    private static List<Object[]> readScores() {
+    private List<Object[]> readScores() {
         List<Object[]> result = new ArrayList<>();
         if (!SCORES_FILE.exists()) {
             return result;
@@ -497,7 +492,7 @@ public class Tetris {
         try (BufferedReader reader = new BufferedReader(new FileReader(SCORES_FILE))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                final Matcher m = SCORE_LINE.matcher(line);
+                Matcher m = SCORE_LINE.matcher(line);
                 if (m.matches()) {
                     result.add(new Object[]{Integer.valueOf(m.group(1)), m.group(2)});
                     sortScores(result);
@@ -510,11 +505,11 @@ public class Tetris {
         }
     }
 
-    private static void sortScores(List<Object[]> result) {
+    private void sortScores(List<Object[]> result) {
         result.sort((o1, o2) -> Integer.compare((int) o1[0], (int) o2[0]));
     }
 
-    private static void writeScores(List<Object[]> scores) {
+    private void writeScores(List<Object[]> scores) {
         try (PrintStream ps = new PrintStream(SCORES_FILE)) {
             for (Object[] e : scores) {
                 ps.println(e[0] + ";" + e[1]);
@@ -524,24 +519,24 @@ public class Tetris {
         }
     }
 
-    private static int[][] rotate(final int[][] tetra) {
+    private int[][] rotate(int[][] tetra) {
         int xMin = Integer.MAX_VALUE;
         int xMax = Integer.MIN_VALUE;
         int yMin = Integer.MAX_VALUE;
         int yMax = Integer.MIN_VALUE;
         for (int i = 0; i < 4; i++) {
-            final int[] tile = tetra[i];
+            int[] tile = tetra[i];
             xMin = Math.min(xMin, tile[0]);
             xMax = Math.max(xMax, tile[0]);
             yMin = Math.min(yMin, tile[1]);
             yMax = Math.max(yMax, tile[1]);
         }
-        final int xCenter = (xMin + xMax + 1) / 2;
-        final int yCenter = (yMin + yMax) / 2;
+        int xCenter = (xMin + xMax + 1) / 2;
+        int yCenter = (yMin + yMax) / 2;
 
-        final int[][] rotated = new int[5][2];
+        int[][] rotated = new int[5][2];
         for (int i = 0; i < 4; i++) {
-            final int[] tile = tetra[i];
+            int[] tile = tetra[i];
             rotated[i][0] = xCenter + yCenter - tile[1];
             rotated[i][1] = yCenter + tile[0] - xCenter;
         }
@@ -550,18 +545,18 @@ public class Tetris {
         return rotated;
     }
 
-    private static void set(
-            final int[][] board, final int[][] tetra) {
+    private void set(
+            int[][] board, int[][] tetra) {
         for (int i = 0; i < 4; i++) {
-            final int[] tile = tetra[i];
+            int[] tile = tetra[i];
             board[tile[0]][tile[1]] = tetra[4][0];
         }
     }
 
-    private static boolean canMoveLeft(
-            final int[][] board, final int[][] tetra) {
+    private boolean canMoveLeft(
+            int[][] board, int[][] tetra) {
         for (int i = 0; i < 4; i++) {
-            final int[] points = tetra[i];
+            int[] points = tetra[i];
             if (points[0] == 0 || board[points[0] - 1][points[1]] > 0) {
                 return false;
             }
@@ -569,10 +564,10 @@ public class Tetris {
         return true;
     }
 
-    private static boolean canMoveRight(
-            final int[][] board, final int[][] tetra) {
+    private boolean canMoveRight(
+            int[][] board, int[][] tetra) {
         for (int i = 0; i < 4; i++) {
-            final int[] points = tetra[i];
+            int[] points = tetra[i];
             if (points[0] == 9 || board[points[0] + 1][points[1]] > 0) {
                 return false;
             }
@@ -580,10 +575,10 @@ public class Tetris {
         return true;
     }
 
-    private static boolean canMoveDown(
-            final int[][] board, final int[][] tetra) {
+    private boolean canMoveDown(
+            int[][] board, int[][] tetra) {
         for (int i = 0; i < 4; i++) {
-            final int[] points = tetra[i];
+            int[] points = tetra[i];
             if (points[1] == 0 || board[points[0]][points[1] - 1] > 0) {
                 return false;
             }
@@ -591,10 +586,10 @@ public class Tetris {
         return true;
     }
 
-    private static boolean canPlace(
-            final int[][] board, final int[][] next) {
+    private boolean canPlace(
+            int[][] board, int[][] next) {
         for (int i = 0; i < 4; i++) {
-            final int[] points = next[i];
+            int[] points = next[i];
             if (points[0] < 0 ||
                     points[1] < 0 ||
                     points[0] > 9 ||
@@ -607,13 +602,4 @@ public class Tetris {
         return true;
     }
 
-    private static void gen(
-            final Random random, final int[][] next) {
-        final int[][] tetra = TETRAS[random.nextInt(TETRAS.length)];
-
-        for (int i = 0; i < 5; i++) {
-            next[i][0] = tetra[i][0];
-            next[i][1] = tetra[i][1];
-        }
-    }
 }
