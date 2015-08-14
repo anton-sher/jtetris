@@ -2,30 +2,39 @@ package com.github.antonsher.tetris;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
-
-/**
- * TODOs: - high scores - refactor
- */
 public class Tetris {
     public static final int[][][] TETRAS = new int[][][]{{{3, 19}, {4, 19}, {5, 19}, {6, 19}, {1, 0}}, // hor. stick
             {{5, 16}, {5, 17}, {5, 18}, {5, 19}, {1, 0}}, // ver. stick
@@ -48,9 +57,11 @@ public class Tetris {
             {{4, 17}, {4, 18}, {5, 18}, {5, 19}, {7, 0}}, // reverse z 2
     };
 
-    public static final Color[] COLORS = {Color.BLACK, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.YELLOW, Color.RED, Color.CYAN, Color.ORANGE};
+    private static final Color[] COLORS = {Color.BLACK, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.YELLOW, Color.RED, Color.CYAN, Color.ORANGE};
     private static final int[] SCORES = {40, 100, 300, 1200};
     private static final int LINES_PER_LEVEL = 20;
+    private static final File SCORES_FILE = new File(System.getProperty("user.home"), "tetris-highscores.txt");
+    private static final Pattern SCORE_LINE = Pattern.compile("(\\d{1,9});(.*)");
 
     enum State {
         PLACE_NEXT,
@@ -76,9 +87,12 @@ public class Tetris {
         final int[][] tetra = new int[5][2];
 
         final JFrame tetris = new JFrame("Tetris");
+        tetris.setLayout(null);
         final Random random = new Random();
 
         tetris.setBackground(Color.GRAY);
+
+        final List<Object[]> highScores = readScores();
 
         final JPanel boardPanel = new JPanel() {
             @Override
@@ -107,7 +121,7 @@ public class Tetris {
 
         tetris.add(boardPanel);
 
-        final JPanel statsPanel = new JPanel();
+        final JPanel statsPanel = new JPanel(null);
         tetris.add(statsPanel);
 
         final JPanel nextPanel = new JPanel() {
@@ -154,6 +168,13 @@ public class Tetris {
         final JLabel gameOverLabel = new JLabel("Game over");
         final JLabel pauseLabel = new JLabel("Pause");
         final JButton newGameButton = new JButton("New game");
+        final JLabel highScoresLabel = new JLabel("High scores");
+        statsPanel.add(highScoresLabel);
+        final JTextArea highScoresArea = new JTextArea();
+        highScoresArea.setEditable(false);
+        highScoresArea.setFont(new Font("monospaced", Font.PLAIN, 12));
+        highScoresArea.setText(makeScoresText(highScores));
+        statsPanel.add(highScoresArea);
         final AtomicBoolean newGame = new AtomicBoolean();
         final AtomicBoolean pause = new AtomicBoolean();
         newGameButton.addActionListener(e -> {
@@ -189,6 +210,9 @@ public class Tetris {
             y += 30;
             newGameButton.setBounds(10, y, 100, 24);
             y += 30;
+            highScoresLabel.setBounds(10, y, 100, 24);
+            y += 30;
+            highScoresArea.setBounds(10, y, 100, 160);
             tetris.setSize(new Dimension(width, height + 20));
         };
 
@@ -316,7 +340,19 @@ public class Tetris {
                     } else {
                         set(board, next);
                         state = State.LOST;
+                        final int finalScore1 = score;
                         SwingUtilities.invokeLater(() -> {
+                            if (finalScore1 > 0 && (highScores.size() < 10 || (int) highScores.get(0)[0] < finalScore1)) {
+                                final String name = (String) JOptionPane.showInputDialog(tetris, "Enter your name", "High score!", JOptionPane.QUESTION_MESSAGE, null, null, null);
+                                highScores.add(0, new Object[]{finalScore1, name == null ? "" : name});
+                                sortScores(highScores);
+                                if (highScores.size() > 10) {
+                                    highScores.remove(0);
+                                }
+                                highScoresArea.setText(makeScoresText(highScores));
+                                writeScores(highScores);
+                            }
+
                             statsPanel.add(gameOverLabel);
                             statsPanel.add(newGameButton);
                             boundsUpdater.run();
@@ -325,6 +361,7 @@ public class Tetris {
                     }
                     break;
                 case LET_USER_MOVE:
+                    boardPanel.requestFocus();
                     lock.lock();
                     try {
                         condition.await(1000 / (level + 1), TimeUnit.MILLISECONDS);
@@ -426,10 +463,64 @@ public class Tetris {
                             tetris.repaint();
                         });
                         newGame.set(false);
+                        boardPanel.requestFocus();
                     }
                     break;
             }
             SwingUtilities.invokeLater(boardPanel::repaint);
+        }
+    }
+
+    private static String makeScoresText(List<Object[]> highScores) {
+        if (highScores.isEmpty()) {
+            return "";
+        }
+        int max = 0;
+        for (Object[] highScore : highScores) {
+            max = Math.max((int) highScore[0], max);
+        }
+
+        String format = "%" + (Integer.toString(max).length()) + "d %s\n";
+        String scores = "";
+        for (Object[] score : highScores) {
+            scores = String.format(format, score[0], score[1]) + scores;
+        }
+
+        return scores;
+    }
+
+    private static List<Object[]> readScores() {
+        List<Object[]> result = new ArrayList<>();
+        if (!SCORES_FILE.exists()) {
+            return result;
+        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(SCORES_FILE))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                final Matcher m = SCORE_LINE.matcher(line);
+                if (m.matches()) {
+                    result.add(new Object[]{Integer.valueOf(m.group(1)), m.group(2)});
+                    sortScores(result);
+                }
+            }
+            return result;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return result;
+        }
+    }
+
+    private static void sortScores(List<Object[]> result) {
+        result.sort((o1, o2) -> Integer.compare((int) o1[0], (int) o2[0]));
+    }
+
+    private static void writeScores(List<Object[]> scores) {
+        try (PrintStream ps = new PrintStream(SCORES_FILE)) {
+            for (Object[] e : scores) {
+                ps.println(e[0] + ";" + e[1]);
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         }
     }
 
@@ -504,7 +595,11 @@ public class Tetris {
             final int[][] board, final int[][] next) {
         for (int i = 0; i < 4; i++) {
             final int[] points = next[i];
-            if (board[points[0]][points[1]] > 0) {
+            if (points[0] < 0 ||
+                    points[1] < 0 ||
+                    points[0] > 9 ||
+                    points[1] > 19 ||
+                    board[points[0]][points[1]] > 0) {
                 return false;
             }
         }
