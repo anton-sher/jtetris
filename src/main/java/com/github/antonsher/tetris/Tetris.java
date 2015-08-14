@@ -1,7 +1,9 @@
 package com.github.antonsher.tetris;
 
-import javax.swing.*;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.KeyAdapter;
@@ -12,15 +14,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
+
+
 /**
- * TODOs:
- * - next fig
- * - high scores
- * - refactor
+ * TODOs: - high scores - refactor
  */
 public class Tetris {
-    public static final int[][][] TETRAS = new int[][][]{
-            {{3, 19}, {4, 19}, {5, 19}, {6, 19}, {1, 0}}, // hor. stick
+    public static final int[][][] TETRAS = new int[][][]{{{3, 19}, {4, 19}, {5, 19}, {6, 19}, {1, 0}}, // hor. stick
             {{5, 16}, {5, 17}, {5, 18}, {5, 19}, {1, 0}}, // ver. stick
             {{4, 19}, {5, 19}, {4, 18}, {5, 18}, {2, 0}}, // square
             {{4, 19}, {5, 19}, {6, 19}, {5, 18}, {3, 0}}, // pin 1
@@ -54,7 +61,8 @@ public class Tetris {
 
     public static final int CELL_SIZE = 32;
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args)
+            throws Exception {
         final ReentrantLock lock = new ReentrantLock();
         final Condition condition = lock.newCondition();
 
@@ -120,7 +128,8 @@ public class Tetris {
                 for (int i = 0; i < 4; i++) {
                     int x = next[i][0] - minX;
                     int y = maxY - next[i][1];
-                    if (maxX - minX < 2) x++;
+                    if (maxX - minX < 2)
+                        x++;
                     g.fillRect(1 + x * 21, 1 + y * 21, 20, 20);
                 }
             }
@@ -450,16 +459,16 @@ public class Tetris {
         return rotated;
     }
 
-    private static void set(final int[][] board,
-                            final int[][] tetra) {
+    private static void set(
+            final int[][] board, final int[][] tetra) {
         for (int i = 0; i < 4; i++) {
             final int[] tile = tetra[i];
             board[tile[0]][tile[1]] = tetra[4][0];
         }
     }
 
-    private static boolean canMoveLeft(final int[][] board,
-                                       final int[][] tetra) {
+    private static boolean canMoveLeft(
+            final int[][] board, final int[][] tetra) {
         for (int i = 0; i < 4; i++) {
             final int[] points = tetra[i];
             if (points[0] == 0 || board[points[0] - 1][points[1]] > 0) {
@@ -469,8 +478,8 @@ public class Tetris {
         return true;
     }
 
-    private static boolean canMoveRight(final int[][] board,
-                                        final int[][] tetra) {
+    private static boolean canMoveRight(
+            final int[][] board, final int[][] tetra) {
         for (int i = 0; i < 4; i++) {
             final int[] points = tetra[i];
             if (points[0] == 9 || board[points[0] + 1][points[1]] > 0) {
@@ -480,8 +489,8 @@ public class Tetris {
         return true;
     }
 
-    private static boolean canMoveDown(final int[][] board,
-                                       final int[][] tetra) {
+    private static boolean canMoveDown(
+            final int[][] board, final int[][] tetra) {
         for (int i = 0; i < 4; i++) {
             final int[] points = tetra[i];
             if (points[1] == 0 || board[points[0]][points[1] - 1] > 0) {
@@ -491,8 +500,8 @@ public class Tetris {
         return true;
     }
 
-    private static boolean canPlace(final int[][] board,
-                                    final int[][] next) {
+    private static boolean canPlace(
+            final int[][] board, final int[][] next) {
         for (int i = 0; i < 4; i++) {
             final int[] points = next[i];
             if (board[points[0]][points[1]] > 0) {
@@ -503,8 +512,8 @@ public class Tetris {
         return true;
     }
 
-    private static void gen(final Random random,
-                            final int[][] next) {
+    private static void gen(
+            final Random random, final int[][] next) {
         final int[][] tetra = TETRAS[random.nextInt(TETRAS.length)];
 
         for (int i = 0; i < 5; i++) {
