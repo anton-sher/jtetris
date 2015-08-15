@@ -81,6 +81,8 @@ public class Tetris {
     private int tillNext = LINES_PER_LEVEL;
     private State state = State.PLACE_NEXT;
 
+    private TetrisModel model = new TetrisModel();
+
     enum State {
         PLACE_NEXT,
         LET_USER_MOVE,
@@ -106,10 +108,10 @@ public class Tetris {
                     g.setColor(COLORS[getTetraKind(tetra)]);
                     g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
                 }
-                for (int x = 0; x < board.length; x++) {
-                    for (int y = 0; y < board[0].length; y++) {
-                        if (board[x][y] > 0) {
-                            g.setColor(COLORS[board[x][y]]);
+                for (int x = 0; x < getBoardWidth(); x++) {
+                    for (int y = 0; y < getBoardHeight(); y++) {
+                        if (getBoardTile(x, y) > 0) {
+                            g.setColor(COLORS[getBoardTile(x, y)]);
                             g.fillRect(1 + x * (CELL_SIZE + 1), 1 + (19 - y) * (CELL_SIZE + 1), CELL_SIZE, CELL_SIZE);
                         }
                     }
@@ -133,16 +135,17 @@ public class Tetris {
                 int maxX = Integer.MIN_VALUE;
                 int maxY = Integer.MIN_VALUE;
                 for (int i = 0; i < 4; i++) {
-                    minX = Math.min(getTetraX(i, next), minX);
-                    maxX = Math.max(getTetraX(i, next), maxX);
-                    maxY = Math.max(getTetraY(i, next), maxY);
+                    minX = Math.min(getNextTetraX(i), minX);
+                    maxX = Math.max(getNextTetraX(i), maxX);
+                    maxY = Math.max(getNextTetraY(i), maxY);
                 }
                 g.setColor(COLORS[getTetraKind(next)]);
                 for (int i = 0; i < 4; i++) {
-                    int x = next[i][0] - minX;
-                    int y = maxY - getTetraY(i, next);
-                    if (maxX - minX < 2)
+                    int x = getNextTetraX(i) - minX;
+                    int y = maxY - getNextTetraY(i);
+                    if (maxX - minX < 2) {
                         x++;
+                    }
                     g.fillRect(1 + x * 21, 1 + y * 21, 20, 20);
                 }
             }
@@ -256,7 +259,7 @@ public class Tetris {
                 }
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_LEFT:
-                        if (canMoveLeft(board, tetra)) {
+                        if (canMoveLeft()) {
                             for (int i = 0; i < 4; i++) {
                                 int[] tile = tetra[i];
                                 tile[0]--;
@@ -264,7 +267,7 @@ public class Tetris {
                         }
                         break;
                     case KeyEvent.VK_RIGHT:
-                        if (canMoveRight(board, tetra)) {
+                        if (canMoveRight()) {
                             for (int i = 0; i < 4; i++) {
                                 int[] tile = tetra[i];
                                 tile[0]++;
@@ -273,12 +276,12 @@ public class Tetris {
                         break;
                     case KeyEvent.VK_UP:
                         int[][] rotated = rotate(tetra);
-                        if (canPlace(board, rotated)) {
+                        if (canPlace()) {
                             System.arraycopy(rotated, 0, tetra, 0, 4);
                         }
                         break;
                     case KeyEvent.VK_DOWN:
-                        if (canMoveDown(board, tetra)) {
+                        if (canMoveDown()) {
                             for (int i = 0; i < 4; i++) {
                                 int[] tile = tetra[i];
                                 tile[1]--;
@@ -286,7 +289,7 @@ public class Tetris {
                         }
                         break;
                     case KeyEvent.VK_SPACE:
-                        while (canMoveDown(board, tetra)) {
+                        while (canMoveDown()) {
                             for (int i = 0; i < 4; i++) {
                                 int[] tile = tetra[i];
                                 tile[1]--;
@@ -319,7 +322,7 @@ public class Tetris {
         while (true) {
             switch (state) {
                 case PLACE_NEXT:
-                    if (canPlace(board, next)) {
+                    if (canPlace()) {
                         for (int i = 0; i < next.length; i++) {
                             int[] tile = next[i];
                             tetra[i][0] = tile[0];
@@ -328,7 +331,7 @@ public class Tetris {
                         generateNext();
                         state = State.LET_USER_MOVE;
                     } else {
-                        set(board, next);
+                        set(next);
                         state = State.LOST;
                         SwingUtilities.invokeLater(() -> {
                             if (score > 0 && (highScores.size() < 10 || (int) highScores.get(0)[0] < score)) {
@@ -368,56 +371,23 @@ public class Tetris {
                     state = State.MOVE_DOWN;
                     break;
                 case MOVE_DOWN:
-                    if (canMoveDown(board, tetra)) {
+                    if (canMoveDown()) {
                         for (int i = 0; i < 4; i++) {
                             int[] tile = tetra[i];
                             tile[1]--;
                         }
                         state = State.LET_USER_MOVE;
                     } else {
-                        set(board, tetra);
-                        int y = 0;
-                        while (y < 20) {
-                            boolean full = true;
-                            for (int x = 0; x < 10; x++) {
-                                if (board[x][y] == 0) {
-                                    full = false;
-                                    break;
-                                }
-                            }
-                            int atOnce = 0;
-                            if (full) {
-                                atOnce++;
-                                for (int x = 0; x < 10; x++) {
-                                    board[x][y] = 0;
-                                    System.arraycopy(board[x], y + 1, board[x], y, 19 - y);
-                                    board[x][19] = 0;
-                                }
-                            } else {
-                                y++;
-                            }
-                            if (atOnce > 0) {
-                                lines += atOnce;
-                                tillNext -= atOnce;
-                                score += SCORES[atOnce - 1] * (level + 1);
-                                SwingUtilities.invokeLater(() -> {
-                                    scoreField.setText("" + score);
-                                    linesField.setText("" + lines);
-                                    boundsUpdater.run();
-                                    tetris.repaint();
-                                });
-                            }
-                            if (tillNext <= 0) {
-                                tillNext += LINES_PER_LEVEL;
-                                level++;
-                                SwingUtilities.invokeLater(() -> {
-                                    levelField.setText("" + level);
-                                    boundsUpdater.run();
-                                    tetris.repaint();
-                                });
-                            }
-                        }
+                        freezeAndClearFullLines();
                         state = State.PLACE_NEXT;
+
+                        SwingUtilities.invokeLater(() -> {
+                            levelField.setText("" + level);
+                            scoreField.setText("" + score);
+                            linesField.setText("" + lines);
+                            boundsUpdater.run();
+                            tetris.repaint();
+                        });
                     }
                     break;
                 case LOST:
@@ -430,7 +400,7 @@ public class Tetris {
                     if (newGame.get()) {
                         for (int x = 0; x < 10; x++) {
                             for (int y = 0; y < 20; y++) {
-                                board[x][y] = 0;
+                                setBoardTile(x, y, 0);
                             }
                         }
                         generateNext();
@@ -455,6 +425,64 @@ public class Tetris {
             }
             SwingUtilities.invokeLater(boardPanel::repaint);
         }
+    }
+
+    private int getNextTetraY(int i) {
+        return getTetraY(i, next);
+    }
+
+    private int getNextTetraX(int i) {
+        return getTetraX(i, next);
+    }
+
+    private void freezeAndClearFullLines() {
+        set(tetra);
+        int y = 0;
+        while (y < 20) {
+            boolean full = true;
+            for (int x = 0; x < 10; x++) {
+                if (getBoardTile(x, y) == 0) {
+                    full = false;
+                    break;
+                }
+            }
+            int atOnce = 0;
+            if (full) {
+                atOnce++;
+                for (int x = 0; x < 10; x++) {
+                    setBoardTile(x, y, 0);
+                    System.arraycopy(board[x], y + 1, board[x], y, 19 - y);
+                    board[x][19] = 0;
+                }
+            } else {
+                y++;
+            }
+            if (atOnce > 0) {
+                lines += atOnce;
+                tillNext -= atOnce;
+                score += SCORES[atOnce - 1] * (level + 1);
+            }
+            if (tillNext <= 0) {
+                tillNext += LINES_PER_LEVEL;
+                level++;
+            }
+        }
+    }
+
+    private void setBoardTile(int x, int y, int value) {
+        board[x][y] = value;
+    }
+
+    private int getBoardTile(int x, int y) {
+        return board[x][y];
+    }
+
+    private int getBoardHeight() {
+        return board[0].length;
+    }
+
+    private int getBoardWidth() {
+        return board.length;
     }
 
     private int getTetraY(int i, int[][] tetra) {
@@ -561,61 +589,59 @@ public class Tetris {
         rotated[4][0] = kind;
     }
 
-    private void set(
-            int[][] board, int[][] tetra) {
+    private void set(int[][] tetra) {
         for (int i = 0; i < 4; i++) {
             int[] tile = tetra[i];
             board[tile[0]][tile[1]] = getTetraKind(tetra);
         }
     }
 
-    private boolean canMoveLeft(
-            int[][] board, int[][] tetra) {
+    private boolean canMoveLeft() {
         for (int i = 0; i < 4; i++) {
-            int[] points = tetra[i];
-            if (points[0] == 0 || board[points[0] - 1][points[1]] > 0) {
+            int[] tile = tetra[i];
+            if (isOutsideTheBoard(tile) || tile[0] == 0 || board[tile[0] - 1][tile[1]] > 0) {
                 return false;
             }
         }
         return true;
     }
 
-    private boolean canMoveRight(
-            int[][] board, int[][] tetra) {
+    private boolean canMoveRight() {
         for (int i = 0; i < 4; i++) {
-            int[] points = tetra[i];
-            if (points[0] == 9 || board[points[0] + 1][points[1]] > 0) {
+            int[] tile = tetra[i];
+            if (isOutsideTheBoard(tile) || tile[0] == 9 || board[tile[0] + 1][tile[1]] > 0) {
                 return false;
             }
         }
         return true;
     }
 
-    private boolean canMoveDown(
-            int[][] board, int[][] tetra) {
+    private boolean canMoveDown() {
         for (int i = 0; i < 4; i++) {
-            int[] points = tetra[i];
-            if (points[1] == 0 || board[points[0]][points[1] - 1] > 0) {
+            int[] tile = tetra[i];
+            if (isOutsideTheBoard(tile) || tile[1] == 0 || board[tile[0]][tile[1] - 1] > 0) {
                 return false;
             }
         }
         return true;
     }
 
-    private boolean canPlace(
-            int[][] board, int[][] next) {
+    private boolean canPlace() {
         for (int i = 0; i < 4; i++) {
-            int[] points = next[i];
-            if (points[0] < 0 ||
-                    points[1] < 0 ||
-                    points[0] > 9 ||
-                    points[1] > 19 ||
-                    board[points[0]][points[1]] > 0) {
+            int[] tile = next[i];
+            if (isOutsideTheBoard(tile) || board[tile[0]][tile[1]] > 0) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private boolean isOutsideTheBoard(int[] tile) {
+        return tile[0] < 0 ||
+                tile[1] < 0 ||
+                tile[0] > 9 ||
+                tile[1] > 19;
     }
 
 }
