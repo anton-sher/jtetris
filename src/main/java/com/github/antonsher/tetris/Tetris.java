@@ -81,15 +81,7 @@ public class Tetris {
         statsPanel.add(highScoresArea);
         AtomicBoolean newGame = new AtomicBoolean();
         AtomicBoolean pause = new AtomicBoolean();
-        newGameButton.addActionListener(e -> {
-            lock.lock();
-            try {
-                newGame.set(true);
-                condition.signalAll();
-            } finally {
-                lock.unlock();
-            }
-        });
+        newGameButton.addActionListener(e -> awakenNewGame(newGame));
 
         Runnable boundsUpdater = () -> {
             boardPanel.setBounds(0, 0, boardWidth, height);
@@ -218,20 +210,7 @@ public class Tetris {
                     break;
                 case LET_USER_MOVE:
                     boardPanel.requestFocus();
-                    lock.lock();
-                    try {
-                        condition.await(1000 / (model.level + 1), TimeUnit.MILLISECONDS);
-                        while (pause.get()) {
-                            lock.lock();
-                            try {
-                                condition.await(50, TimeUnit.MILLISECONDS);
-                            } finally {
-                                lock.unlock();
-                            }
-                        }
-                    } finally {
-                        lock.unlock();
-                    }
+                    awaitAccordingToLevel(pause);
                     model.state = State.MOVE_DOWN;
                     break;
                 case MOVE_DOWN:
@@ -255,12 +234,7 @@ public class Tetris {
                     }
                     break;
                 case LOST:
-                    lock.lock();
-                    try {
-                        condition.await(500, TimeUnit.MILLISECONDS);
-                    } finally {
-                        lock.unlock();
-                    }
+                    awaitBeforeNewGame();
                     if (newGame.get()) {
                         for (int x = 0; x < 10; x++) {
                             for (int y = 0; y < 20; y++) {
@@ -288,6 +262,42 @@ public class Tetris {
                     break;
             }
             SwingUtilities.invokeLater(boardPanel::repaint);
+        }
+    }
+
+    private void awaitBeforeNewGame() throws InterruptedException {
+        lock.lock();
+        try {
+            condition.await(500, TimeUnit.MILLISECONDS);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void awaitAccordingToLevel(AtomicBoolean pause) throws InterruptedException {
+        lock.lock();
+        try {
+            condition.await(1000 / (model.level + 1), TimeUnit.MILLISECONDS);
+            while (pause.get()) {
+                lock.lock();
+                try {
+                    condition.await(50, TimeUnit.MILLISECONDS);
+                } finally {
+                    lock.unlock();
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void awakenNewGame(AtomicBoolean newGame) {
+        lock.lock();
+        try {
+            newGame.set(true);
+            condition.signalAll();
+        } finally {
+            lock.unlock();
         }
     }
 
